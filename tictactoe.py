@@ -1,5 +1,6 @@
 import os
 import random
+import sys                     # **new** needed for sys.exit()
 
 # Clear screen function
 def clear():
@@ -36,34 +37,70 @@ def hint(board):
             return i + 1
     return None
 
-# Main game loop
+# **new** helper routines for player‑vs‑computer mode
+def computer_move(board, p):
+    """very simple AI – take the first free square (same as hint) or pick
+    a random empty cell if the hint returned None."""
+    idx = hint(board)
+    if idx is not None:
+        return idx - 1
+    empties = [i for i, v in enumerate(board) if v == " "]
+    return random.choice(empties)
+
+def show_scoreboard():
+    print(f"Scoreboard: X={x_wins} | O={o_wins} | Ties={ties}")
+
+# Main game loop (modified/extended – original logic is unchanged, new
+# code is marked)
 clear()
 print("Welcome to Tic Tac Toe!")
+
+# **new**: mode selection and optional computer opponent
+mode = ""
+while mode not in ("1", "2"):
+    mode = input("Choose mode: 1) Two players  2) Play against computer\n> ")
 p1 = input("Enter name for Player X: ")
-p2 = input("Enter name for Player O: ")
+if mode == "1":
+    p2 = input("Enter name for Player O: ")
+else:
+    p2 = "Computer"              # computer will always be O here
 
 while True:
     board = [" "] * 9
     turn = random.choice(["X", "O"])  # random first player
+    comp_symbol = "O" if mode == "2" else None   # track computer symbol
 
     while True:
         clear()
         print_board(board)
-        print(f"Scoreboard: X={x_wins} | O={o_wins} | Ties={ties}")
-        print(f"Hint: Try spot {hint(board)}")
+        show_scoreboard()          # **new**
+        # only show hint to human player
+        if not (mode == "2" and turn == comp_symbol):
+            print(f"Hint: Try spot {hint(board)}")
 
         player_name = p1 if turn == "X" else p2
-        move = input(f"{player_name}'s turn ({turn}). Choose 1-9 or 'end' to quit: ")
 
-        if move.lower() == "end":
-            clear()
-            print("Thanks for playing!")
-            exit()
+        # **new**: if it's the computer's turn, pick a move automatically
+        if mode == "2" and turn == comp_symbol:
+            move = computer_move(board, turn)
+        else:
+            move = input(f"{player_name}'s turn ({turn}). "
+                         "Choose 1-9, 'score' to view scores or 'end' to quit: ")
 
-        if not move.isdigit() or not 1 <= int(move) <= 9:
-            continue
+            if move.lower() == "end":
+                clear()
+                print("Thanks for playing!")
+                sys.exit()
 
-        move = int(move) - 1
+            if move.lower() == "score":   # **new** command
+                clear()
+                show_scoreboard()
+                input("press Enter to continue...")
+                continue
+
+            if not move.isdigit() or not 1 <= int(move) <= 9:
+                continue
+            move = int(move) - 1
 
         if board[move] != " ":
             continue
