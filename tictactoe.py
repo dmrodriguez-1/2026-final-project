@@ -1,6 +1,6 @@
 import os
 import random
-import sys                     # **new** needed for sys.exit()
+import sys
 
 # Clear screen function
 def clear():
@@ -11,15 +11,16 @@ x_wins = 0
 o_wins = 0
 ties = 0
 
-# Print board
-def print_board(board):
+# Print board + move count
+def print_board(board, move_count):
     print(f"""
-     {board[0]} | {board[1]} | {board[2]}
-    ---+---+---
-     {board[3]} | {board[4]} | {board[5]}
-    ---+---+---
-     {board[6]} | {board[7]} | {board[8]}
-    """)
+Move #{move_count}
+ {board[0]} | {board[1]} | {board[2]}
+---+---+---
+ {board[3]} | {board[4]} | {board[5]}
+---+---+---
+ {board[6]} | {board[7]} | {board[8]}
+""")
 
 # Win check
 def check_win(board, p):
@@ -37,94 +38,140 @@ def hint(board):
             return i + 1
     return None
 
-# **new** helper routines for player‑vs‑computer mode
-def computer_move(board, p):
-    """very simple AI – take the first free square (same as hint) or pick
-    a random empty cell if the hint returned None."""
-    idx = hint(board)
-    if idx is not None:
-        return idx - 1
+# computer move logic
+def computer_move(board, p, difficulty):
     empties = [i for i, v in enumerate(board) if v == " "]
-    return random.choice(empties)
+
+    if difficulty == "easy":
+        idx = hint(board)
+        if idx is not None:
+            return idx - 1
+        return random.choice(empties)
+
+    if difficulty == "medium":
+        opponent = "O" if p == "X" else "X"
+        for i in empties:
+            board[i] = p
+            if check_win(board, p):
+                board[i] = " "
+                return i
+            board[i] = " "
+        for i in empties:
+            board[i] = opponent
+            if check_win(board, opponent):
+                board[i] = " "
+                return i
+            board[i] = " "
+        return random.choice(empties)
+
+    opponent = "O" if p == "X" else "X"
+    def minimax(b, player):
+        if check_win(b, p): return 1
+        if check_win(b, opponent): return -1
+        if " " not in b: return 0
+        scores = []
+        for j in range(9):
+            if b[j] == " ":
+                b[j] = player
+                score = minimax(b, opponent if player == p else p)
+                b[j] = " "
+                scores.append(score)
+        return max(scores) if player == p else min(scores)
+
+    best_score = -2
+    best_move = None
+    for i in empties:
+        board[i] = p
+        score = minimax(board, opponent)
+        board[i] = " "
+        if score > best_score:
+            best_score = score
+            best_move = i
+    return best_move
 
 def show_scoreboard():
     print(f"Scoreboard: X={x_wins} | O={o_wins} | Ties={ties}")
 
-# Main game loop (modified/extended – original logic is unchanged, new
-# code is marked)
+# main loop
 clear()
 print("Welcome to Tic Tac Toe!")
 
-# **new**: mode selection and optional computer opponent
 mode = ""
 while mode not in ("1", "2"):
     mode = input("Choose mode: 1) Two players  2) Play against computer\n> ")
-p1 = input("Enter name for Player X: ")
+p1 = input("Enter name for Player 1: ")
+
+# symbol choice
+sym1 = ""
+while sym1 not in ("X","O"):
+    sym1 = input("Choose your symbol (X/O): ").upper()
+sym2 = "O" if sym1 == "X" else "X"
+
 if mode == "1":
-    p2 = input("Enter name for Player O: ")
+    p2 = input("Enter name for Player 2: ")
+    difficulty = None
 else:
-    p2 = "Computer"              # computer will always be O here
+    p2 = "Computer"
+    diff = ""
+    while diff not in ("1","2","3"):
+        diff = input("Choose difficulty: 1) Easy  2) Medium  3) Hard\n> ")
+    difficulty = {"1":"easy","2":"medium","3":"hard"}[diff]
 
 while True:
     board = [" "] * 9
-    turn = random.choice(["X", "O"])  # random first player
-    comp_symbol = "O" if mode == "2" else None   # track computer symbol
+    history = []
+    move_count = 1
+    turn = random.choice([sym1, sym2])
+    comp_symbol = sym2 if mode == "2" else None
 
     while True:
         clear()
-        print_board(board)
-        show_scoreboard()          # **new**
-        # only show hint to human player
+        print_board(board, move_count)
+        show_scoreboard()
         if not (mode == "2" and turn == comp_symbol):
             print(f"Hint: Try spot {hint(board)}")
 
-        player_name = p1 if turn == "X" else p2
+        player_name = p1 if turn == sym1 else p2
 
-        # **new**: if it's the computer's turn, pick a move automatically
         if mode == "2" and turn == comp_symbol:
-            move = computer_move(board, turn)
+            move = computer_move(board, turn, difficulty)
         else:
             move = input(f"{player_name}'s turn ({turn}). "
-                         "Choose 1-9, 'score' to view scores or 'end' to quit: ")
+                         "Choose 1-9, 'undo', 'score' or 'end': ")
 
             if move.lower() == "end":
-                clear()
-                print("Thanks for playing!")
-                sys.exit()
-
-            if move.lower() == "score":   # **new** command
-                clear()
-                show_scoreboard()
-                input("press Enter to continue...")
+                clear(); print("Thanks for playing!"); sys.exit()
+            if move.lower() == "score":
+                clear(); show_scoreboard(); input("press Enter to continue..."); continue
+            if move.lower() == "undo" and history:
+                board[history.pop()] = " "
+                turn = "O" if turn == "X" else "X"
+                move_count -= 1
                 continue
-
             if not move.isdigit() or not 1 <= int(move) <= 9:
                 continue
             move = int(move) - 1
 
-        if board[move] != " ":
-            continue
+        if board[move] != " ": continue
 
+        history.append(move)
         board[move] = turn
 
         if check_win(board, turn):
-            clear()
-            print_board(board)
+            clear(); print_board(board, move_count)
             print(f"{player_name} ({turn}) wins!")
-            if turn == "X":
-                x_wins += 1
-            else:
-                o_wins += 1
+            if turn == "X": x_wins += 1
+            else: o_wins += 1
             break
 
         if " " not in board:
-            clear()
-            print_board(board)
+            clear(); print_board(board, move_count)
             print("It's a tie!")
             ties += 1
             break
 
         turn = "O" if turn == "X" else "X"
+        move_count += 1
 
     again = input("Play again? (yes/no): ").lower()
     if again != "yes":
