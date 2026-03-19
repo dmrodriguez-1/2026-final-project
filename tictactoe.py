@@ -1,184 +1,162 @@
-import os
-import random
-import sys
+import os, random, tkinter as tk
+from tkinter import messagebox, simpledialog
 
-# Clear screen function
-def clear():
-    os.system("cls" if os.name == "nt" else "clear")
+def check_win(board,p):
+    wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
+    return any(all(board[i]==p for i in w) for w in wins)
 
-# Scoreboard
-x_wins = 0
-o_wins = 0
-ties = 0
-
-# Print board + move count
-def print_board(board, move_count):
-    print(f"""
-Move #{move_count}
- {board[0]} | {board[1]} | {board[2]}
----+---+---
- {board[3]} | {board[4]} | {board[5]}
----+---+---
- {board[6]} | {board[7]} | {board[8]}
-""")
-
-# Win check
-def check_win(board, p):
-    wins = [
-        [0,1,2],[3,4,5],[6,7,8],
-        [0,3,6],[1,4,7],[2,5,8],
-        [0,4,8],[2,4,6]
-    ]
-    return any(all(board[i] == p for i in w) for w in wins)
-
-# Hint system (first open spot)
 def hint(board):
     for i in range(9):
-        if board[i] == " ":
-            return i + 1
+        if board[i]==" ": return i+1
     return None
 
-# computer move logic
-def computer_move(board, p, difficulty):
-    empties = [i for i, v in enumerate(board) if v == " "]
-
-    if difficulty == "easy":
-        idx = hint(board)
-        if idx is not None:
-            return idx - 1
+def computer_move(board,p,difficulty):
+    empties=[i for i,v in enumerate(board) if v==" "]
+    if not empties: return None
+    if difficulty=="easy":
+        idx=hint(board)
+        if idx is not None: return idx-1
         return random.choice(empties)
-
-    if difficulty == "medium":
-        opponent = "O" if p == "X" else "X"
+    if difficulty=="medium":
+        opp="O" if p=="X" else "X"
         for i in empties:
-            board[i] = p
-            if check_win(board, p):
-                board[i] = " "
-                return i
-            board[i] = " "
+            board[i]=p
+            if check_win(board,p): board[i]=" "; return i
+            board[i]=" "
         for i in empties:
-            board[i] = opponent
-            if check_win(board, opponent):
-                board[i] = " "
-                return i
-            board[i] = " "
+            board[i]=opp
+            if check_win(board,opp): board[i]=" "; return i
+            board[i]=" "
         return random.choice(empties)
-
-    opponent = "O" if p == "X" else "X"
-    def minimax(b, player):
-        if check_win(b, p): return 1
-        if check_win(b, opponent): return -1
+    opp="O" if p=="X" else "X"
+    def minimax(b,player):
+        if check_win(b,p): return 1
+        if check_win(b,opp): return -1
         if " " not in b: return 0
-        scores = []
+        scores=[]
         for j in range(9):
-            if b[j] == " ":
-                b[j] = player
-                score = minimax(b, opponent if player == p else p)
-                b[j] = " "
+            if b[j]==" ":
+                b[j]=player
+                score=minimax(b,opp if player==p else p)
+                b[j]=" "
                 scores.append(score)
-        return max(scores) if player == p else min(scores)
-
-    best_score = -2
-    best_move = None
+        return max(scores) if player==p else min(scores)
+    best_score=-2; best_move=None
     for i in empties:
-        board[i] = p
-        score = minimax(board, opponent)
-        board[i] = " "
-        if score > best_score:
-            best_score = score
-            best_move = i
+        board[i]=p
+        score=minimax(board,opp)
+        board[i]=" "
+        if score>best_score:
+            best_score=score; best_move=i
     return best_move
 
-def show_scoreboard():
-    print(f"Scoreboard: X={x_wins} | O={o_wins} | Ties={ties}")
+root=tk.Tk(); root.withdraw()
 
-# main loop
-clear()
-print("Welcome to Tic Tac Toe!")
+mode=simpledialog.askstring("Mode","Choose mode: 1=Two players, 2=Computer",parent=root)
+if mode not in ("1","2"):
+    messagebox.showerror("Error","Invalid mode; defaulting to Computer.")
+    mode="2"
 
-mode = ""
-while mode not in ("1", "2"):
-    mode = input("Choose mode: 1) Two players  2) Play against computer\n> ")
-p1 = input("Enter name for Player 1: ")
+difficulty="hard"
+if mode=="2":
+    diff=simpledialog.askstring("Difficulty","Choose difficulty:\n1=Easy\n2=Medium\n3=Hard",parent=root)
+    difficulty={"1":"easy","2":"medium","3":"hard"}.get(diff,"hard")
 
-# symbol choice
-sym1 = ""
-while sym1 not in ("X","O"):
-    sym1 = input("Choose your symbol (X/O): ").upper()
-sym2 = "O" if sym1 == "X" else "X"
-
-if mode == "1":
-    p2 = input("Enter name for Player 2: ")
-    difficulty = None
+player1_name=simpledialog.askstring("Name","Enter Player 1 name:",parent=root) or "Player 1"
+if mode=="1":
+    player2_name=simpledialog.askstring("Name","Enter Player 2 name:",parent=root) or "Player 2"
 else:
-    p2 = "Computer"
-    diff = ""
-    while diff not in ("1","2","3"):
-        diff = input("Choose difficulty: 1) Easy  2) Medium  3) Hard\n> ")
-    difficulty = {"1":"easy","2":"medium","3":"hard"}[diff]
+    player2_name="Computer"
 
-while True:
-    board = [" "] * 9
-    history = []
-    move_count = 1
-    turn = random.choice([sym1, sym2])
-    comp_symbol = sym2 if mode == "2" else None
+human_symbol="X"; computer_symbol="O"
+if mode=="2":
+    sch=simpledialog.askstring("Symbol","Pick your symbol X/O (computer gets other)",parent=root)
+    if sch and sch.upper() in ("X","O"):
+        human_symbol=sch.upper(); computer_symbol="O" if human_symbol=="X" else "X"
 
-    while True:
-        clear()
-        print_board(board, move_count)
-        show_scoreboard()
-        if not (mode == "2" and turn == comp_symbol):
-            print(f"Hint: Try spot {hint(board)}")
+root.deiconify()
+board=[" "]*9; buttons=[]; score={"X":0,"O":0,"Ties":0}; turn="X"
 
-        player_name = p1 if turn == sym1 else p2
+img_x=tk.PhotoImage(file=os.path.join("assets","pixil-frame-0.png"))
+img_o=tk.PhotoImage(file=os.path.join("assets","pixil-frame-0 (1).png"))
+empty_img=tk.PhotoImage(width=1,height=1)
 
-        if mode == "2" and turn == comp_symbol:
-            move = computer_move(board, turn, difficulty)
-        else:
-            move = input(f"{player_name}'s turn ({turn}). "
-                         "Choose 1-9, 'undo', 'score' or 'end': ")
+def update_title():
+    mode_label="CPU" if mode=="2" else "2-player"
+    current_name=player1_name if turn=="X" else player2_name
+    root.title(f"{current_name} ({turn}) - {mode_label} | X:{score['X']} O:{score['O']} T:{score['Ties']}")
 
-            if move.lower() == "end":
-                clear(); print("Thanks for playing!"); sys.exit()
-            if move.lower() == "score":
-                clear(); show_scoreboard(); input("press Enter to continue..."); continue
-            if move.lower() == "undo" and history:
-                board[history.pop()] = " "
-                turn = "O" if turn == "X" else "X"
-                move_count -= 1
-                continue
-            if not move.isdigit() or not 1 <= int(move) <= 9:
-                continue
-            move = int(move) - 1
+def refresh_hint():
+    hint_label.config(text=f"Hint: {hint(board)}")
 
-        if board[move] != " ": continue
+def reset_board():
+    global board, turn
+    board=[" "]*9
+    for b in buttons: b.config(image=empty_img)
+    turn="X"; update_title(); refresh_hint()
+    if mode=="2" and turn==computer_symbol:
+        root.after(200,cpu_move)
 
-        history.append(move)
-        board[move] = turn
+def end_game(winner):
+    if winner in ("X","O"):
+        score[winner]+=1
+        winner_name=player1_name if winner=="X" else player2_name
+        messagebox.showinfo("Result",f"{winner_name} ({winner}) wins!")
+    else:
+        score["Ties"]+=1
+        messagebox.showinfo("Result","Tie!")
+    reset_board()
 
-        if check_win(board, turn):
-            clear(); print_board(board, move_count)
-            print(f"{player_name} ({turn}) wins!")
-            if turn == "X": x_wins += 1
-            else: o_wins += 1
-            break
+def check_game_over():
+    if check_win(board,turn): end_game(turn); return True
+    if " " not in board: end_game(None); return True
+    return False
 
-        if " " not in board:
-            clear(); print_board(board, move_count)
-            print("It's a tie!")
-            ties += 1
-            break
+def play(i):
+    global turn
+    if board[i]!=" ": return
+    board[i]=turn
+    buttons[i].config(image=img_x if turn=="X" else img_o)
+    if check_game_over(): return
+    turn="O" if turn=="X" else "X"; update_title(); refresh_hint()
+    if mode=="2" and turn==computer_symbol: root.after(250,cpu_move)
 
-        turn = "O" if turn == "X" else "X"
-        move_count += 1
+def cpu_move():
+    global turn
+    move=computer_move(board,computer_symbol,difficulty)
+    if move is None: return
+    board[move]=computer_symbol
+    buttons[move].config(image=img_x if computer_symbol=="X" else img_o)
+    if check_win(board,computer_symbol): end_game(computer_symbol); return
+    if " " not in board: end_game(None); return
+    turn="O" if computer_symbol=="X" else "X"; update_title(); refresh_hint()
 
-    again = input("Play again? (yes/no): ").lower()
-    if again != "yes":
-        clear()
-        print("Final Scoreboard:")
-        print(f"X Wins: {x_wins}")
-        print(f"O Wins: {o_wins}")
-        print(f"Ties: {ties}")
-        print("Thanks for playing!")
-        break
+def choose_symbol():
+    global human_symbol, computer_symbol
+    s=simpledialog.askstring("Choose symbol","Pick X or O",parent=root)
+    if s and s.upper() in ("X","O"):
+        human_symbol=s.upper(); computer_symbol="O" if human_symbol=="X" else "X"; reset_board()
+    else:
+        messagebox.showwarning("Oops","Choose X or O please.")
+
+def switch_mode():
+    global mode
+    mode="1" if mode=="2" else "2"
+    messagebox.showinfo("Mode switched","2-player mode" if mode=="1" else "Computer mode")
+    reset_board()
+
+for i in range(9):
+    btn=tk.Button(root,image=empty_img,width=120,height=120,command=lambda i=i: play(i))
+    btn.grid(row=i//3,column=i%3); buttons.append(btn)
+
+hint_label=tk.Label(root,text=f"Hint: {hint(board)}")
+hint_label.grid(row=3,column=0,columnspan=3,pady=8)
+
+menu=tk.Menu(root); root.config(menu=menu)
+m=tk.Menu(menu,tearoff=0); menu.add_cascade(label="Game",menu=m)
+m.add_command(label="New Game",command=reset_board)
+m.add_command(label="Switch Mode",command=switch_mode)
+m.add_command(label="Choose Symbol",command=choose_symbol)
+m.add_command(label="Quit",command=root.quit)
+
+update_title(); root.mainloop()
